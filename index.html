@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Quiz de famille</title>
+<style>
+:root{--bg:#fff8ef;--card:#fff;--ink:#2b2118;--mut:#7a6a5a;--acc:#e8590c;--acc2:#fff0e3;--bd:#ecdcc8;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1e1812;--card:#2a221a;--ink:#f6ede2;--mut:#b3a392;--acc:#ff8a3d;--acc2:#3a2a1c;--bd:#43372b}}
+:root[data-theme="dark"]{--bg:#1e1812;--card:#2a221a;--ink:#f6ede2;--mut:#b3a392;--acc:#ff8a3d;--acc2:#3a2a1c;--bd:#43372b}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.45}
+main{max-width:520px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:1.7rem;margin:.2em 0}h2{font-size:1.25rem;margin:.4em 0 .8em}
+p{color:var(--mut)}
+.card,.btn{border:1px solid var(--bd);border-radius:14px;background:var(--card);color:var(--ink);font:inherit}
+.btn{display:block;width:100%;padding:14px 16px;margin:10px 0;text-align:left;cursor:pointer;font-size:1rem}
+.btn:hover,.btn:focus-visible{border-color:var(--acc);background:var(--acc2)}
+.btn.sel{border-color:var(--acc);background:var(--acc2);font-weight:600}
+.go{background:var(--acc);color:#fff;border-color:var(--acc);text-align:center;font-weight:600}
+.go:hover{background:var(--acc);filter:brightness(1.08)}
+.go[disabled]{opacity:.4;cursor:default}
+.bar{height:6px;background:var(--bd);border-radius:3px;margin:8px 0 18px}
+.bar i{display:block;height:100%;background:var(--acc);border-radius:3px}
+.card{padding:16px;margin:12px 0}
+input{width:100%;padding:12px;border:1px solid var(--bd);border-radius:10px;background:var(--card);color:var(--ink);font:inherit}
+.qrs{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.qrs .card{text-align:center}.qrs canvas,.qrs img{max-width:100%}
+a{color:var(--acc)}small{color:var(--mut)}
+@media print{input,.noprint{display:none}}
+</style>
+</head>
+<body>
+<main id="app"></main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+// ====== TES QUESTIONNAIRES : modifie ici ======
+// answer = index (0, 1, 2, 3) de la bonne réponse
+const QUIZZES = {
+  cinema: { title:"🎬 Cinéma", intro:"Les grands classiques du grand écran.", questions:[
+    {q:"Quel poisson cherche-t-on dans « Le Monde de Nemo » ?",o:["Nemo","Dory","Marin","Bruce"],answer:0},
+    {q:"Dans quel film entend-on « Je suis ton père » ?",o:["Star Wars V","Indiana Jones","Matrix","Alien"],answer:0},
+    {q:"Qui a réalisé « Titanic » ?",o:["Steven Spielberg","James Cameron","Ridley Scott","Tim Burton"],answer:1},
+    {q:"Comment s'appelle le lion du « Roi Lion » ?",o:["Mufasa","Scar","Simba","Nala"],answer:2}]},
+  famille: { title:"🏠 Notre famille", intro:"Qui connaît le mieux la famille ?", questions:[
+    {q:"Exemple : quelle est la couleur préférée de papa ?",o:["Bleu","Vert","Rouge","Jaune"],answer:0},
+    {q:"Exemple : où sont allés les derniers grands voyages ?",o:["Espagne","Italie","Grèce","Portugal"],answer:1},
+    {q:"Exemple : quel plat est la spécialité de mamie ?",o:["Tarte","Gratin","Soupe","Crêpes"],answer:3}]},
+  culture: { title:"🌍 Culture générale", intro:"Un peu de tout, pour tous les âges.", questions:[
+    {q:"Quelle est la capitale de l'Australie ?",o:["Sydney","Melbourne","Canberra","Perth"],answer:2},
+    {q:"Combien de côtés a un hexagone ?",o:["5","6","7","8"],answer:1},
+    {q:"Quelle planète est la plus proche du Soleil ?",o:["Vénus","Mars","Mercure","Terre"],answer:2},
+    {q:"Quel océan est le plus grand ?",o:["Atlantique","Indien","Arctique","Pacifique"],answer:3}]}
+};
+// ==============================================
+const app=document.getElementById('app');
+const H=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let st={};
+function store(get,key,val){try{if(get)return JSON.parse(localStorage.getItem(key)||'null');localStorage.setItem(key,JSON.stringify(val))}catch(e){return null}}
+function route(){
+  const h=decodeURIComponent(location.hash.slice(1));
+  if(h==='qr')return qrPage();
+  if(h==='reveal')return reveal();
+  if(QUIZZES[h])return intro(h);
+  menu();
+}
+function menu(){
+  const done=store(true,'done')||{};
+  app.innerHTML='<h1>🎲 Quiz de famille</h1><p>Choisis un questionnaire et réponds sans trop réfléchir. Les résultats seront révélés plus tard !</p>'+
+  Object.entries(QUIZZES).map(([id,z])=>`<button class="btn" data-id="${id}">${H(z.title)}${done[id]?' <small>✓ terminé</small>':''}</button>`).join('');
+  app.querySelectorAll('[data-id]').forEach(b=>b.onclick=()=>location.hash=b.dataset.id);
+}
+function intro(id){
+  const z=QUIZZES[id];
+  app.innerHTML=`<h1>${H(z.title)}</h1><p>${H(z.intro)}</p><p>${z.questions.length} questions · pas de score affiché à la fin.</p>
+  <label>Ton prénom<input id="nm" maxlength="30" placeholder="Prénom" autocomplete="given-name"></label>
+  <button class="btn go" id="start" disabled>Commencer</button><button class="btn" id="back">← Retour</button>`;
+  const nm=document.getElementById('nm'),s=document.getElementById('start');
+  nm.value=(store(true,'name')||'');s.disabled=!nm.value.trim();
+  nm.oninput=()=>s.disabled=!nm.value.trim();
+  document.getElementById('back').onclick=()=>location.hash='';
+  s.onclick=()=>{store(false,'name',nm.value.trim());st={id,i:0,ans:[],name:nm.value.trim()};question()};
+}
+function question(){
+  const z=QUIZZES[st.id],q=z.questions[st.i];let pick=null;
+  app.innerHTML=`<small>${H(z.title)} · Question ${st.i+1}/${z.questions.length}</small>
+  <div class="bar"><i style="width:${st.i/z.questions.length*100}%"></i></div><h2>${H(q.q)}</h2>`+
+  q.o.map((t,k)=>`<button class="btn" data-k="${k}">${H(t)}</button>`).join('')+
+  `<button class="btn go" id="next" disabled>${st.i+1===z.questions.length?'Terminer':'Suivant'}</button>`;
+  const next=document.getElementById('next');
+  app.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>{pick=+b.dataset.k;
+    app.querySelectorAll('[data-k]').forEach(x=>x.classList.toggle('sel',x===b));next.disabled=false});
+  next.onclick=()=>{st.ans.push(pick);st.i++;st.i<z.questions.length?question():finish()};
+}
+function finish(){
+  const z=QUIZZES[st.id];
+  const score=st.ans.reduce((n,a,i)=>n+(a===z.questions[i].answer?1:0),0);
+  const res=store(true,'results')||[];
+  res.push({quiz:st.id,name:st.name,score,total:z.questions.length,date:Date.now()});
+  store(false,'results',res);
+  const done=store(true,'done')||{};done[st.id]=true;store(false,'done',done);
+  app.innerHTML=`<h1>Merci ${H(st.name)} ! 🎉</h1><p>Tes réponses sont enregistrées. Le résultat sera révélé plus tard, patience…</p>
+  <button class="btn go" id="menu">Choisir un autre questionnaire</button>`;
+  document.getElementById('menu').onclick=()=>location.hash='';
+}
+function reveal(){
+  const res=store(true,'results')||[];
+  app.innerHTML='<h1>🏆 Résultats</h1>'+(res.length?res.map(r=>`<div class="card"><b>${H(r.name)}</b> · ${H(QUIZZES[r.quiz]?QUIZZES[r.quiz].title:r.quiz)}<br><span style="font-size:1.4rem">${r.score} / ${r.total}</span></div>`).join(''):'<p>Aucun résultat sur cet appareil.</p>')+
+  '<button class="btn" id="b">← Retour</button>';
+  document.getElementById('b').onclick=()=>location.hash='';
+}
+function qrPage(){
+  let base=(store(true,'base')||location.href.split('#')[0]);
+  app.innerHTML=`<h1>📱 QR codes</h1><p class="noprint">Colle ici le lien public de cette appli, puis imprime ou affiche les QR codes.</p>
+  <input id="base" value="${H(base)}" aria-label="Lien de l'appli"><div class="qrs" id="qrs"></div>
+  <button class="btn noprint" id="b">← Retour</button>`;
+  const draw=()=>{
+    const b=document.getElementById('base').value.trim().split('#')[0];store(false,'base',b);
+    const box=document.getElementById('qrs');box.innerHTML='';
+    const items=[['','🎲 Tous les quiz'],...Object.entries(QUIZZES).map(([id,z])=>[id,z.title])];
+    items.forEach(([id,t])=>{const c=document.createElement('div');c.className='card';
+      const q=document.createElement('div');c.appendChild(q);
+      const l=document.createElement('p');l.textContent=t;c.appendChild(l);box.appendChild(c);
+      try{new QRCode(q,{text:id?b+'#'+id:b,width:180,height:180})}catch(e){q.textContent='QR indisponible'}});
+  };
+  document.getElementById('base').oninput=draw;draw();
+  document.getElementById('b').onclick=()=>location.hash='';
+}
+window.addEventListener('hashchange',route);route();
+</script>
+</body>
+</html>
